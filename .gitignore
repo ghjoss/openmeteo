@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+*.pyc
+openmeteo_api_data.py
+meteosource_api_data.py
+*.af*
+router.py
+cls.py
+.vscode/
+.micropico
+*.mpy
+oldCode/
+sizeTest.py
+vector.py
+ws.py

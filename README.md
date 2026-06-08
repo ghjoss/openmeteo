@@ -43,7 +43,9 @@ Allows the developer to control the polling time (from 1 to 15 minutes), the num
 
 Copy this to router.py and edit the copied file to change the WiFi SSID and password need to be modified to connect to a router. The OPEN_STREETMAP_AGENT needs to be modified to allow a lookup of the city name associated with the latitude and longitude.
 
-### openmeteo_api_data.py
+### openmeteo_api_data_base.py
+
+Copy this file to openmeteo_api_data.py and edit that copied file accordingly:
 
 Specify the longitude, latitude, timezone and units (metric/imperial).
 
@@ -89,7 +91,7 @@ Three control files need to be modified:
 
 START_HOUR and END_HOUR are on a 24 hour clock.
 
-### openmeteo_api_data.py
+### openmeteo_api_data.py (copied from openmeteo_api_data_base.py)
 
 * LONGITUDE, LATITUDE
 
@@ -136,8 +138,8 @@ The following modules need to be uploaded to the RP2350:
 * main.py
 * network_access.py
 * openmeteo.py
-* openmeteo_api_data.py
-* router.py
+* openmeteo_api_data.py (copied from openmeteo_api_data_base.py)
+* router.py (copied from router_base.py, -OR- router.mpy if router.py is optionally processed with mpy-cross)
   
 The modules have been tested with Roboto-Medium font, which is installed on the Presto. The degree symbol (°) is not in this font. However the Roboto-Medium-With-Material-Symbols.af font, which is available from pimoroni, *does* have this symbol. But when I used it, the lower-case "t" did not print properly.
 

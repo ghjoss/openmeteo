@@ -32,12 +32,12 @@ def initialize():
     global connected, query_interval, now, city
     query_interval = QUERY_INTERVAL
 
-    global current_view_state, FORECAST_VIEW, CURRENT_WEATHER_VIEW, PRECIPITATION_VIEW, THREE_DAY_FORECAST_VIEW
+    global current_view_state, FORECAST_VIEW, CURRENT_WEATHER_VIEW, PRECIPITATION_VIEW, N_DAYS_FORECAST_VIEW
     global START_HOUR, END_HOUR, N_DAY_FORECAST
     
     CURRENT_WEATHER_VIEW = 1
     PRECIPITATION_VIEW = 2
-    THREE_DAY_FORECAST_VIEW = 3
+    N_DAYS_FORECAST_VIEW = 3
     FORECAST_VIEW = 0
     
     print("Starting...")
@@ -161,7 +161,7 @@ def responsive_wait(minutes, data, sleeping):
                     openmeteo.format_current_weather_data(data, city)
                 elif current_view_state == PRECIPITATION_VIEW:
                     openmeteo.format_precipitation_data(data)
-                elif current_view_state == THREE_DAY_FORECAST_VIEW:
+                elif current_view_state == N_DAYS_FORECAST_VIEW:
                     openmeteo.format_N_day_forecast_data(data,N=N_DAY_FORECAST)
                 viewStateChanged = False
 
@@ -252,17 +252,6 @@ def in_range(cur_h: int, start_h: int, end_h: int) -> bool:
     else:                                     # wraps past midnight
         return cur_h >= start_h or cur_h < end_h
 
-"""
-    randomize the wait time between failed polls by +/- 1 ms to 20% of the original wait times.
-"""    
-def randomize_time(ms):
-    r1 = random.random()
-    if r1 < .5:
-        multiplier = -1
-    else:
-        multiplier = 1
-    return int(ms + multiplier * random.randint(0,ms / 5))
-
 def get_forecast_with_retries(max_retries=6, initial_interval=400):
     """
     Attempt to retrieve forecast data with retries and exponential backoff.
@@ -290,11 +279,12 @@ def get_forecast_with_retries(max_retries=6, initial_interval=400):
             interval *= 2  # Exponential backoff
 
     raise RuntimeError("Unable to retrieve forecast data after multiple attempts.")
+
 def main():
     try:
         initialize()
         sleeping = False
-        global connected, query_interval, current_view_state, view_states, START_HOUR, END_HOUR
+        global connected, query_interval, current_view_state, START_HOUR, END_HOUR
         data = None
 
         if connected:

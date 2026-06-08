@@ -115,7 +115,7 @@ def draw_vector_row(texts, y_pos,pen,anchors=[]):
     global display, vector, default_scale
     set_rotational_shift(default_rotational_shift,y_pos)
 
-    # Set to your Red color
+    # Set to the passed pen color for drawing the text
     display.set_pen(pen)
     
     # Use Integer Scale 1

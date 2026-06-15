@@ -1,4 +1,4 @@
-from control import TESTING
+from control import DEBUG, log_debug
 import control
 import picovector
 from presto import Presto
@@ -25,13 +25,13 @@ def init_provider(presto_obj, rotational_shift=None, scale = None, font = None):
     if scale is None:
         pass
     else:
-        print(f"Setting display scale to {scale}. Was {default_scale}.")
+        log_debug(f"Setting display scale to {scale}. Was {default_scale}.")
         default_scale = scale
 
     if font is None:
         pass
     else:
-        print(f"Setting display font to {font}. Was {default_font}.")
+        log_debug(f"Setting display font to {font}. Was {default_font}.")
         default_font = font
     
     vector.set_font(default_font, default_scale)
@@ -39,13 +39,13 @@ def init_provider(presto_obj, rotational_shift=None, scale = None, font = None):
     if rotational_shift is None:
         pass
     else:
-        print(f"Setting display rotational shift to {rotational_shift}. Was {default_rotational_shift}.")
+        log_debug(f"Setting display rotational shift to {rotational_shift}. Was {default_rotational_shift}.")
         default_rotational_shift = rotational_shift
 
     BLACK = display.create_pen(0,0,0)
     WHITE = display.create_pen(255,255,255)
     WIDTH,HEIGHT = display.get_bounds()
-    print(f"Display initialized with width={WIDTH}, height={HEIGHT}, scale={default_scale}, font={default_font}, row_step={row_step}, small_step={small_step}")      
+    log_debug(f"Display initialized with width={WIDTH}, height={HEIGHT}, scale={default_scale}, font={default_font}, row_step={row_step}, small_step={small_step}")      
 
 def set_rotational_shift(rotational_shift,y_pos):
     t = picovector.Transform()

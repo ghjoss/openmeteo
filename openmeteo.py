@@ -1,5 +1,5 @@
 from openmeteo_api_data import LONGITUDE, LATITUDE, UNITS, TIMEZONE
-from control import TESTING, FORECAST_HOURS, N_DAY_FORECAST
+from control import DEBUG, FORECAST_HOURS, N_DAY_FORECAST, log_debug
 import display_functions as df
 import requests
 import gc
@@ -55,7 +55,7 @@ def init_provider():
     # validate and set forecast hours
     forecast_hours = FORECAST_HOURS
 
-    print("Initializing weather provider...")
+    log_debug("Initializing weather provider...")
     header_pen = df.new_pen("_SlateBlue")
     data_pen = df.new_pen("_PaleTurquoise") # "_Cornsilk","_Cyan","_Gray","_DarkSlateGray"
     alert_pen = df.new_pen("_Coral")
@@ -98,7 +98,7 @@ def split_at_forty(text: str):
     return [text]
 
 def format_current_weather_data(data, city):
-    print("format_current_weather_data()")
+    log_debug("format_current_weather_data()")
 
     global header_pen, data_pen, alert_pen, background_pen, date_pen
 
@@ -136,11 +136,11 @@ def format_current_weather_data(data, city):
     df.cls()
     forecast_time = current["time"].split("T")[1]
     line = [f"{city} Weather: as of {forecast_time}"]
-    print(line[0])
+    log_debug(line[0])
     df.draw_vector_row(line,15,header_pen,anchors=[])
 
     y_row = 45
-    print(f"Current temp:{current_temp}")
+    log_debug(f"Current temp:{current_temp}")
     line = ["Current temp:"]
     df.draw_vector_row(line,y_row,header_pen,anchors=anchors_current[1])
     line = [f"{current_temp:02.1f} {temp_units}"]
@@ -149,7 +149,7 @@ def format_current_weather_data(data, city):
     row_increment_value = 15
 
     y_row += row_increment_value
-    print(f"Feels like: {current_apparent_temp}")
+    log_debug(f"Feels like: {current_apparent_temp}")
     line = ["Feels like:"]
     df.draw_vector_row(line,y_row,header_pen,anchors=anchors_current[1])
     line = [f"{current_apparent_temp:02.1f} {temp_units}"]
@@ -165,35 +165,35 @@ def format_current_weather_data(data, city):
 
 
     y_row += row_increment_value
-    print(f"Wind speed:{current_wind}")
+    log_debug(f"Wind speed:{current_wind}")
     line = ["Wind speed:"]
     df.draw_vector_row(line,y_row,header_pen,anchors=anchors_current[1])
     line = [f"{current_wind:02.1f} {wind_speed_units}"]
     df.draw_vector_row(line,y_row,data_pen,anchors=anchors_current[2])
 
     y_row += row_increment_value
-    print(f"UV Index: {current_uv_index}")
+    log_debug(f"UV Index: {current_uv_index}")
     line = ["UV Index:"]
     df.draw_vector_row(line,y_row,header_pen,anchors=anchors_current[1])
     line = [f"{current_uv_index:02.2f}"]
     df.draw_vector_row(line,y_row,data_pen,anchors=anchors_current[2])
 
     y_row += row_increment_value
-    print(f"Rel. Hum. {current_rel_humidity}")
+    log_debug(f"Rel. Hum. {current_rel_humidity}")
     line = ["Humidity:"]
     df.draw_vector_row(line,y_row,header_pen,anchors=anchors_current[1])
     line = [f"{current_rel_humidity:02.1f} {rel_hum_units}"]
     df.draw_vector_row(line,y_row,data_pen,anchors=anchors_current[2])
 
     y_row += row_increment_value
-    print(f"Cloud cover: {current_cloud_cover} {cloud_cover_units}")
+    log_debug(f"Cloud cover: {current_cloud_cover} {cloud_cover_units}")
     line = ["Cloud cover:"]
     df.draw_vector_row(line,y_row,header_pen,anchors=anchors_current[1])
     line = [f"{current_cloud_cover:02.1f} {cloud_cover_units}"]
     df.draw_vector_row(line,y_row,data_pen,anchors=anchors_current[2])
 
     y_row += row_increment_value
-    print(f"Precipitation: {current_precipitation}")
+    log_debug(f"Precipitation: {current_precipitation}")
     line = ["Precipitation:"]
     df.draw_vector_row(line,y_row,header_pen,anchors=anchors_current[1])
     line = [f"{current_precipitation:02.3f} {precipitation_units[:2]}"]
@@ -201,7 +201,7 @@ def format_current_weather_data(data, city):
 
     y_row += row_increment_value
     if current_precipitation > 0:
-        print(f"  Rain: {current_rain}  {precipitation_units[:2]}"
+        log_debug(f"  Rain: {current_rain}  {precipitation_units[:2]}"
               f"Showers: {current_showers}  {precipitation_units[:2]}"
               f"  Snowfall: {current_snow}  {precipitation_units[:2]}")
         line = ["Rain:"]
@@ -220,7 +220,7 @@ def format_current_weather_data(data, city):
         
     y_row += int(row_increment_value * 1.75)
     weather_text = WEATHER_CODES_FULL[current_weather_code]
-    print(f"Weather: {weather_text} (code={current_weather_code})")
+    log_debug(f"Weather: {weather_text} (code={current_weather_code})")
     # The longest weather code: "Thunderstorm with slight hail" is 29 chars.
     # but for insurance, split lines longer than 40 chars at the last space to
     # print those longer lines on two lines (assumes not longer than 80)
@@ -238,11 +238,11 @@ def format_current_weather_data(data, city):
 #    y_row += 10
 #    df.draw_vector_row(line,y_row,value_pen,anchors=[])
     df.refresh()
-    print("...end format_current_weather_data()")
+    log_debug("...end format_current_weather_data()")
 
 
 def format_precipitation_data(data):
-    print("format_precipitation_data()")
+    log_debug("format_precipitation_data()")
     global forecast_anchors
     global forecast_hours
     global header_pen, data_pen, alert_pen, background_pen, date_pen
@@ -321,11 +321,11 @@ def format_precipitation_data(data):
 
         df.draw_vector_row(line, row_y, line_pen, anchors=forecast_anchors)
         row_y += df.row_step
-        print(f"{time_text} | {temp}({apparent_temp}) {data["current_units"]["temperature_2m"]} | {precipitation} {data["current_units"]["precipitation"]} | {rel_humidity}% | {precipitation_probability}%")
+        log_debug(f"{time_text} | {temp}({apparent_temp}) {data["current_units"]["temperature_2m"]} | {precipitation} {data["current_units"]["precipitation"]} | {rel_humidity}% | {precipitation_probability}%")
 
     # After drawing all the lines, refresh the display to show the new data
     df.refresh()
-    print("...end format_precipitation_data()")
+    log_debug("...end format_precipitation_data()")
 
 def consolidate_weather_codes(code):
     for c in WEATHER_GROUPS:
@@ -334,7 +334,7 @@ def consolidate_weather_codes(code):
     return f"--- weather code {code} ---"
 
 def format_forecast_data(data):
-    print("format_forecast_data()")
+    log_debug("format_forecast_data()")
     global forecast_anchors
     global forecast_hours
 
@@ -428,16 +428,16 @@ def format_forecast_data(data):
 
         df.draw_vector_row(line, row_y, line_pen, anchors=forecast_anchors)
         row_y += df.row_step
-        print(f"{time_text} | {temp}{temperature_label} | {wind_speed}{wind_speed_label} | uv index: {uv} | {consolidate_weather_codes(weather_code)}")
+        log_debug(f"{time_text} | {temp}{temperature_label} | {wind_speed}{wind_speed_label} | uv index: {uv} | {consolidate_weather_codes(weather_code)}")
 
     # After drawing all the lines, refresh the display to show the new data
     df.refresh()
-    print("...end format_forecast_data()")
+    log_debug("...end format_forecast_data()")
 
 def format_N_day_forecast_data(data,N):
     global forecast_anchors
     anchored = True
-    print("format_N_day_forecast_data()")
+    log_debug("format_N_day_forecast_data()")
     N_day_forecast_anchors = [75, 145, 185, 230]
 
     global header_pen, data_pen, alert_pen, background_pen, date_pen
@@ -519,14 +519,14 @@ def format_N_day_forecast_data(data,N):
             df.draw_vector_row(line, row_y, data_pen, anchors=[])
 
         row_y += df.row_step
-        print(line)
+        log_debug(line)
 
     try:
         df.refresh()
     except Exception as e:
-        print(f"Error refreshing display: {e}")
+        log_debug(f"Error refreshing display: {e}")
 
-    print("...end format_N_day_forecast_data()")
+    log_debug("...end format_N_day_forecast_data()")
 
 def get_forecast_data(Days=3):
     
@@ -549,16 +549,16 @@ def get_forecast_data(Days=3):
         f"&timezone=auto&forecast_days={Days}&daily=temperature_2m_max,temperature_2m_min,precipitation_sum&models=best_match"
 		f"&wind_speed_unit={wind_speed_unit}&temperature_unit={temperature_unit}&precipitation_unit={precipitation_unit}"
         )
-    print(url)
+    log_debug(url)
     response = None
     try:
         gc.collect() # Clean RAM before the request
         response = requests.get(url)
         data = response.json()
-        print(data)
+        log_debug(data)
         return data
     except Exception as e:
-        print(f"Meteo Error: {e}")
+        log_debug(f"Meteo Error: {e}")
         return None
     finally:
         if response:

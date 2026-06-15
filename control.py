@@ -1,4 +1,4 @@
-.# globals.py
+# globals.py
 # ----- raw user‑provided values -----
 QUERY_INTERVAL_MINUTES = 15        # user may edit this
 TESTING = True                      # user may edit this
@@ -38,9 +38,9 @@ except NameError:
     QUERY_INTERVAL = 15
 
 try:
-    TESTING = _as_bool(TESTING, False)
+    DEBUG = _as_bool(TESTING, False)
 except NameError:
-    TESTING = False
+    DEBUG = False
 
 # Enforce minimum interval unless we are in testing mode.
 if not TESTING:
@@ -81,3 +81,7 @@ except NameError:
 
 if N_DAY_FORECAST < 3 or N_DAY_FORECAST > 7:
     N_DAY_FORECAST = 3
+
+def log_debug(msg):
+    if DEBUG:
+        print(f"DEBUG: {msg}")

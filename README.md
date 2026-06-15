@@ -4,7 +4,7 @@
 
 This micropython application polls https://api.open-meteo.com to get the forecast for a given latitude and longitude. Through control files the user can specify their wifi SSID and password, the frequency of polling, the longitude and latitude, units (metric/imperial) and the number of lines of data to display.
 
-There are four screens of displayable data, accessible by swiping left and right:
+There are four screens of displayable data and two charts, accessible by swiping left and right:
 
 * Current weather. Includes: temperature, UV index, wind speed, precipitation data.
 
@@ -18,13 +18,24 @@ There are four screens of displayable data, accessible by swiping left and right
 <img src="./weather_forecast.png">
 </div>
 
+* chart showing trend of hourly temperatures.
+<div align=center>
+<img src="./forecast_chart.jpg">
+</div
+
 * Hourly list of precipitation forecast: Temperature, total precipitation amount, relative humidity and probability of precipitation.
 
 <div align=center>
 <img src="./weather_precipitation.jpg">
 </div>
 
-* Three day forecast of maximum daily temperature, maximum daily windspeed and total precipitation.
+* Chart showing trend of hourly precipitation.
+
+<div align=center>
+<img src="./precipitation_chart.jpg">
+</div>
+
+* N-day forecast of maximum daily temperature, maximum daily windspeed and total precipitation.
 
 <div align=center>
 <img src="./weather_3day.jpg">
@@ -60,6 +71,16 @@ Handles the Presto screen vector IO.
 ### Colors.py
 
 A dictionary of RGB colors.
+
+### 📦 Included Dependencies: Vendor_Code/pichart.py
+
+This project bundles a modified version of https://github.com/kevinmcaleer/pichart, created by Kevin McAleer, which is licnesed under the MIT License. 
+
+**Changes made:** 
+
+* Modified `pichart.py` to fix upper values missing from Y-axis on charts so it works seamlessly with this application.
+  
+* The modified source is included in the `Vendor_Code` directory, so you do not need to download it separately.The two chart screens are generated using this module.  See the customization section for notes on the minor change to this code for the Presto.
 
 
 ## Customization
@@ -140,18 +161,54 @@ The following modules need to be uploaded to the RP2350:
 * openmeteo.py
 * openmeteo_api_data.py (copied from openmeteo_api_data_base.py)
 * router.py (copied from router_base.py, -OR- router.mpy if router.py is optionally processed with mpy-cross)
+* Vendor_Code/pichart.py (copy to root directory on the RP2350)
   
-The modules have been tested with Roboto-Medium font, which is installed on the Presto. The degree symbol (°) is not in this font. However the Roboto-Medium-With-Material-Symbols.af font, which is available from pimoroni, *does* have this symbol. But when I used it, the lower-case "t" did not print properly.
+### font
+
+The modules have been tested with Roboto-Medium font, which is installed by pimoroni on the Presto. The degree symbol (°) is not in this font. However the Roboto-Medium-With-Material-Symbols.af font, which is available from pimoroni, *does* have this symbol. But when I used it, the lower-case "t" did not print properly.
+
+### additional API
 
 main.py invokes the openstreemap interface from Nominatim to look up the city name associated with the latitude and longitude. The call is done once in the initialization() function of the module. See the notes in router_base.py concerning this API.
 
+### colors
+
 Only four colors are used. You can modify the colors to suit your tastes. To save space, back up Colors.py and create a new dictionary with only the colors you need.
+
+### pichart.py modification
+
+There was an issue in the charts. When Y-axis labels are activated, there are meant to be three values printed. The lower value (at y=0) is the minimum value of the list [] being charted, the middle value is the mean between the upper and lower list values and prints in the middle of the displayed Y-Axis. The topmost value is meant to be the maximum value. However, the maximum value was not being displayed.
+
+After some investigation of the update() method of the Chart class, I saw these lines at the end of the subroutine:
+
+            if self.show_x_axis:
+                self._draw_x_axis()
+            if self.show_y_axis:
+                self._draw_y_axis()
+
+            self._display.remove_clip()
+            self.draw_border()
+            self._display.update()
+
+On the Presto, it looks like the self.display.remove_clip() method was overlaying the upper Y-axis value. When I moved the remove_clip() to precede the axis displays:
+
+            self._display.remove_clip()
+
+            if self.show_x_axis:
+                self._draw_x_axis()
+            if self.show_y_axis:
+                self._draw_y_axis()
+
+            self.draw_border()
+            self._display.update()
+
+The problem went away and the upper number of the Y-axis displayed correctly. This fix is in the pichart.py module in the Vendor_Code directory.
 
 ### Interface notes
 
-The initial screen is the current weather based upon the last poll of the server. Swipe left on the screen to see the hourly precipitation forecast. Swipe right from the current weather to see the hourly temperature/wind speed/UVI index forecast. Swipe left or right two times from the current weather screen to see the three day forecast.
+The initial screen is the current weather based upon the last poll of the server. Swipe left on the screen to see the hourly precipitation forecast. Swipe right from the current weather to see the hourly temperature/wind speed/UVI index forecast. Swipe left or right a few times from the current weather screen to see the multi-day forecast.
 
-The screens are cyclic. Swiping left or right four times in a row will return the the screen at the start of a cycle (meaning: if you are on the precipitation screen and swipe right 4 times, you will return to the precipitation screen).
+The screens are cyclic. Swiping left or right six times in a row will return the the screen at the start of a cycle (meaning: if you are on the precipitation screen and swipe right six times, you will return to the precipitation screen).
 
 Swiping down dims the display by 5%. Swiping up increases the brightness by 5%. Initial brightness is 50%.
 

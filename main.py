@@ -1,5 +1,5 @@
 import time
-from control import TESTING, QUERY_INTERVAL, START_HOUR, END_HOUR, N_DAY_FORECAST
+from control import DEBUG, QUERY_INTERVAL, START_HOUR, END_HOUR, N_DAY_FORECAST, log_debug
 from router import OPEN_STREETMAP_AGENT
 from openmeteo_api_data import LONGITUDE, LATITUDE
 import display_functions as df
@@ -10,10 +10,7 @@ import openmeteo
 import ntptime
 import urequests as requests
 import random
-
-if not TESTING:
-    def print(*args, **kwargs):
-        pass
+import openmeteo_chart
 
 def initialize():
     """
@@ -33,24 +30,27 @@ def initialize():
     query_interval = QUERY_INTERVAL
 
     global current_view_state, FORECAST_VIEW, CURRENT_WEATHER_VIEW, PRECIPITATION_VIEW, N_DAYS_FORECAST_VIEW
+    global FORECAST_CHART_VIEW, PRECIPITATION_CHART_VIEW,VIEW_STATES
     global START_HOUR, END_HOUR, N_DAY_FORECAST
     
-    CURRENT_WEATHER_VIEW = 1
+    CURRENT_WEATHER_VIEW = 3
     PRECIPITATION_VIEW = 2
-    N_DAYS_FORECAST_VIEW = 3
-    FORECAST_VIEW = 0
-    
-    print("Starting...")
+    N_DAYS_FORECAST_VIEW = 0
+    FORECAST_VIEW = 4
+    FORECAST_CHART_VIEW = 5
+    PRECIPITATION_CHART_VIEW = 1
+    VIEW_STATES = 6
+    log_debug("Starting...")
 
     # connect to WiFi
-    print("Connecting to WiFi...")
+    log_debug("Connecting to WiFi...")
     connected = False
     netLan = wifi_connect()
 
     if netLan is None:
         raise RuntimeError("Unable to connect to WiFi network. Program terminating.")
 
-    print(f"...connected! IP: {netLan.ifconfig()[0]}")
+    log_debug(f"...connected! IP: {netLan.ifconfig()[0]}")
 
     connected = True
     
@@ -63,16 +63,16 @@ def initialize():
             data = response.json()
             address = data.get("address", {})
             city = address.get("city") or address.get("town") or address.get("village")
-            print(f"City: {city}")
+            log_debug(f"City: {city}")
         else:
-            print(f"Error: {response.status_code}")
+            log_debug(f"Error: {response.status_code}")
             city = "Forecast"
         response.close()
     except Exception as e:
         city = "Forecast"
-        print(f"openstreet map city lookup failed.")
+        log_debug(f"openstreet map city lookup failed.")
 
-    print("Presto initialization...")
+    log_debug("Presto initialization...")
     presto = Presto()
     display = presto.display
 
@@ -81,7 +81,7 @@ def initialize():
 
     vector = picovector.PicoVector(display)
     vector.set_antialiasing(picovector.ANTIALIAS_BEST)
-    print("...Presto initialized, call display_functions.init_provider...)")
+    log_debug("...Presto initialized, call display_functions.init_provider...)")
     
     # get UTC offset seconds for the location, which will be used to determine when to sleep the display
     global UTC_OFFSET_SECONDS
@@ -92,18 +92,18 @@ def initialize():
         data = res.json()
         UTC_OFFSET_SECONDS = data["currentUtcOffset"]["seconds"]
     except Exception as e:
-        print(f"Unable to get UTC offset seconds for the location, defaulting to 0. Error: {e}")
+        log_debug(f"Unable to get UTC offset seconds for the location, defaulting to 0. Error: {e}")
 
     df.init_provider(presto, rotational_shift=-15)
     #df.init_provider(presto, rotational_shift=-22,font="AdventPro-Black.af",scale=20)
 
-    print("...display provider initialized, call weatherapi.init_provider...)")
+    log_debug("...display provider initialized, call weatherapi.init_provider...)")
     openmeteo.init_provider()
-    print("...weather provider initialized")
+    log_debug("...weather provider initialized")
     brightness = 0.3 # start out at ~1/3
     presto.set_backlight(brightness)
     presto.update()
-
+    openmeteo_chart.init_provider(presto)
 
 def responsive_wait(minutes, data, sleeping):
     """
@@ -145,7 +145,7 @@ def responsive_wait(minutes, data, sleeping):
     viewStateChanged = True
     lcl_sleeping = sleeping
 
-    print(f"Waiting {minutes} min...")
+    log_debug(f"Waiting {minutes} min...")
     # The minutes to wait parameter has been converted to max_ticks.
     get_weather_once = True
     while time.ticks_diff(time.ticks_ms(), start_tick) < max_ticks:
@@ -163,6 +163,10 @@ def responsive_wait(minutes, data, sleeping):
                     openmeteo.format_precipitation_data(data)
                 elif current_view_state == N_DAYS_FORECAST_VIEW:
                     openmeteo.format_N_day_forecast_data(data,N=N_DAY_FORECAST)
+                elif current_view_state == FORECAST_CHART_VIEW:
+                    openmeteo_chart.temp_wind_uv_charts(data)
+                elif current_view_state == PRECIPITATION_CHART_VIEW:
+                    openmeteo_chart.precipitation_charts(data)
                 viewStateChanged = False
 
         presto.touch_poll()
@@ -190,31 +194,31 @@ def responsive_wait(minutes, data, sleeping):
                 lcl_sleeping = False # whether a tap or swipe, wake up the display if it is sleeping
 
                 if adx < MIN_SWIPE_DISTANCE and ady < MIN_SWIPE_DISTANCE and elapsed < SWIPE_THRESHOLD:
-                    print("Tap detected") 
+                    log_debug("Tap detected") 
                 # check for swipe left,right
                 elif adx >= ady: # horizontal swipes dominate
                     if dx > 0: # right
-                        current_view_state = (current_view_state + 1) % 4
+                        current_view_state = (current_view_state + 1) % VIEW_STATES
                         viewStateChanged = True
-                        print("Swiped right, switching view.")
+                        log_debug("Swiped right, switching view.")
                     else: # left
-                        current_view_state = (current_view_state - 1) % 4
+                        current_view_state = (current_view_state - 1) % VIEW_STATES
                         viewStateChanged = True
-                        print("Swiped left, switching view.")
+                        log_debug("Swiped left, switching view.")
                 # if we have processed swipe left or right, do not
                 # also process brightness change as it might be
                 # an accidental vertical slant to the left-right swipe
                 else:
                     # check for swipe up,down
                     if dy > 0: # down
-                        print("swiped down, brightness down...",end="")
+                        log_debug("swiped down, brightness down...",end="")
                         level_change =-0.05
                     else: # up
                         level_change = 0.05
-                        print("swiped up, brightness up...",end="")
-                    print(f"level={brightness} ",end="")
+                        log_debug("swiped up, brightness up...",end="")
+                    log_debug(f"level={brightness} ",end="")
                     brightness = df.set_backlight(brightness,level_change)
-                    print(f" new level {brightness}")
+                    log_debug(f" new level {brightness}")
             # Reset the touch tracking
             touch_started = False    
         time.sleep_ms(20)
@@ -274,7 +278,7 @@ def get_forecast_with_retries(max_retries=6, initial_interval=400):
         if data is not None:
             return data
         else:
-            print(f"Attempt {attempt + 1} failed. Retrying in {interval} ms...")
+            log_debug(f"Attempt {attempt + 1} failed. Retrying in {interval} ms...")
             time.sleep_ms(interval)
             interval *= 2  # Exponential backoff
 
@@ -294,7 +298,7 @@ def main():
                     data = get_forecast_with_retries()
             
                 now_list = get_now_list()
-                print(now_list)
+                log_debug(now_list)
                 if len(now_list) > 0:
                     sleeping = not in_range(now_list[0], START_HOUR, END_HOUR)
                 
@@ -305,12 +309,12 @@ def main():
                 responsive_wait(query_interval, data, sleeping)
 
     except KeyboardInterrupt:
-        print("Program stopped by user. Exiting gracefully.")
+        log_debug("Program stopped by user. Exiting gracefully.")
     except RuntimeError as e:
-        print(f"Runtime error: {e}. Exiting.")
+        log_debug(f"Runtime error: {e}. Exiting.")
         df.presto_errors(f"{e}")
     except Exception as e:
-        print(f"An unexpected error occurred: {e}. Exiting.")
+        log_debug(f"An unexpected error occurred: {e}. Exiting.")
         df.presto_errors(f"{e}")
 
 if __name__ == "__main__":

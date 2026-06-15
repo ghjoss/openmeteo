@@ -1,7 +1,7 @@
 import network
 import time
 from router import WIFI_SSID, WIFI_PASSWORD
-
+from control import DEBUG,log_debug
 def wifi_connect():
     """
     Connect to the wifi network using the SSID and PASSWORD

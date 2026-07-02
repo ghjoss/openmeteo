@@ -1,186 +1,206 @@
-# Openmeteo Weather on the pimoroni Presto
+# Openmeteo Weather on the Pimoroni Presto
 
 ## Description
 
-This micropython application polls https://api.open-meteo.com to get the forecast for a given latitude and longitude. Through control files the user can specify their wifi SSID and password, the frequency of polling, the longitude and latitude, units (metric/imperial) and the number of lines of data to display.
+This micropython application polls https://api.open-meteo.com to get the forecast for a given latitude and longitude. Through a json configuration file the user can specify their wifi SSID and password, the frequency of polling, the longitude and latitude, units (metric/imperial) and the number of days of forecast data. There is a web page that can be used to change parameters while the app is running.
 
-There are four screens of displayable data and two charts, accessible by swiping left and right:
+There are seven screens of displayable data accessible by swiping left and right:
 
 * Current weather. Includes: temperature, UV index, wind speed, precipitation data.
 
 <div align=center>
-<img src="./weather_current.jpg">
+<img src="./Current_Weather.png">
 </div>
 
 * Hourly list of forecast data: Temperature, wind speed, UV Index and a brief description of the weather (clear, cloudy, foggy, rain, ...).
   
 <div align=center>
-<img src="./weather_forecast.png">
+<img src="./Hourly_Forecast.png">
 </div>
 
 * chart showing trend of hourly temperatures.
 <div align=center>
-<img src="./forecast_chart.jpg">
+<img src="./Hourly_Temp_Chart.png">
 </div
 
 * Hourly list of precipitation forecast: Temperature, total precipitation amount, relative humidity and probability of precipitation.
 
 <div align=center>
-<img src="./weather_precipitation.jpg">
+<img src="./Hourly_Precipitation.png">
 </div>
 
 * Chart showing trend of hourly precipitation.
 
 <div align=center>
-<img src="./precipitation_chart.jpg">
+<img src="./Hourly_Precipitation_Chart.png">
 </div>
 
-* N-day forecast of maximum daily temperature, maximum daily windspeed and total precipitation.
+* Three to five day forecast of maximum daily temperature, maximum daily windspeed and total precipitation.
 
 <div align=center>
-<img src="./weather_3day.jpg">
+<img src="./5_day_forecast.png">
+</div>
+
+* The current parameters controlling program operation.
+
+<div align=center>
+<img src="./Current_Operating_Parameters.png">
 </div>
 ## Modules
 
 ### main.py
 
-The driver of the application. After initialization; main.py permanently iterates, polling openmeteo according to the user specified frequency of polling. Note that this is coded as a stand-alone application and will replace the sample application that comes with the pimoroni Presto. You can use the Thonny IDE to download the pimoroni code if you wish to save it. Or you can move it to a new directory on the RP2350.
+The driver of the application. After initialization; main.py permanently iterates, polling Open-Meteo according to the user specified frequency of polling. Note that this is coded as a stand-alone application and will replace the sample application that comes with the Pimoroni Presto. You can use the Thonny IDE to download the pimoroni code if you wish to save it. Or you can move it to a new directory on the RP2350.
 
 ### control.py
 
-Allows the developer to control the polling time (from 1 to 15 minutes), the number of hours to display in the forecasts, the start and end hours and whether or not the application is in testing mode.
-
-### router_base.py
-
-Copy this to router.py and edit the copied file to change the WiFi SSID and password need to be modified to connect to a router. The OPEN_STREETMAP_AGENT needs to be modified to allow a lookup of the city name associated with the latitude and longitude.
-
-### openmeteo_api_data_base.py
-
-Copy this file to openmeteo_api_data.py and edit that copied file accordingly:
-
-Specify the longitude, latitude, timezone and units (metric/imperial).
+Sets the default control variables and then loads the config.json parameters to get the user's desired values for those variables.
 
 ### openmeteo.py
 
-Issues the openmeteo API forecast query and formats the display.
+Issues the Open-Meteo API forecast query and formats the display.
 
 ### display_functions.py
 
 Handles the Presto screen vector IO.
 
-### Colors.py
+### config.json
 
-A dictionary of RGB colors.
+This is the persistant set of operating parameters.
 
 ### 📦 Included Dependencies: Vendor_Code/pichart.py
 
-This project bundles a modified version of https://github.com/kevinmcaleer/pichart, created by Kevin McAleer, which is licnesed under the MIT License. 
+This project bundles a modified version of https://github.com/kevinmcaleer/pichart, created by Kevin McAleer, which is licensed under the MIT License.
 
-**Changes made:** 
+**Changes made:**
 
 * Modified `pichart.py` to fix upper values missing from Y-axis on charts so it works seamlessly with this application.
   
 * The modified source is included in the `Vendor_Code` directory, so you do not need to download it separately.The two chart screens are generated using this module.  See the customization section for notes on the minor change to this code for the Presto.
 
-
 ## Customization
 
-Three control files need to be modified:
+Copy config.json.base to config.json. Then modify config.json as follows:
 
-### control.py
+* QUERY_INTERVAL_MINUTES = _15_
 
-* QUERY_INTERVAL_MINUTES = 15
+    The app polls the Open-Meteo API server once every QUERY_INTERVAL_MINUTES. The validation code in control.py ensures that this is an integer value. If the DEBUG parameter,specified in config.json, is __false__ then QUERY_INTERVAL_MINUTES has a minimum value of 15. However, if the DEBUG value is __true__, then QUERY_INTERVAL_MINUTES has a minimum value of 1.
 
-    main.py polls the openmeteo API server once every QUERY_INTERVAL. The validation code in control.py ensures that this is an integer value. If the TESTING value is False, then QUERY_INTERVAL has a minimum value of 15. If the TESTING value is True, then QUERY_INTERVAL has a minimum value of 1.
-    Note: there is a limit of 1000 polls a day in the free API. openmeteo data is only updated once every 15 minutes in *hourly* mode.
+  * There is a limit of 10000 polls a day in the free API.
+  * Open-Meteo data is only updated once every 15 minutes in _hourly_ mode.
 
-* TESTING = True
+* DEBUG = _true_
 
-    When set to False, all debugging print statements in the program are replaced with a print function that does nothing. TESTING can also be used by the developer to add additional debugging code as required. Should be set to False for the final run-time, but there is no harm in leaving this True as the lack of a terminal for output does not impact the program.
+    When set to __false__, debugging statements are printed by a single routine, log_debug(), that is defined in control.py. DEBUG value __true__ can also be used by the developer to add additional debugging output as required. Should be set to __false__ for the final run-time, but there is no harm in leaving this __true__ as the lack of a terminal for output does not impact the program.  log_debug() outputs nothing if:
+  * DEBUG is false _OR_
+  * it is determined that the program is not running through an IDE. When the Presto runs without a terminal to receive the print statements, the RP2350 cache can fill up and slow or stop program execution. In control.py:
 
-* FORECAST_HOURS = 9
+    ```python
+    # RP2040 and RP2350 USB Controller base address + SIE\_STATUS offset
+    SIE_STATUS_REG = 0x50110000 + 0x50
 
-    Affects how many lines of forecast data are printed in the hourly forecast and precipitation forecast screens. Note: 9 should be the outside limit for the default font-size.
+    # Bit definitions for the SIE status
+    # Bit 16 (0x10000): Device is connected to a host (handshake completed)
+    # Bit 4  (0x10): Device is suspended by the host (PC went to sleep or dropped terminal)
+    SIE_CONNECTED = 1 << 16
+    SIE_SUSPENDED = 1 << 4
 
-* START_HOUR = 4
+    def is_usb_connected():
+        #Reads the hardware register to check if an active USB host is connected."""
+        try:
+            status = machine.mem32[SIE_STATUS_REG]
+        # It must be connected, and NOT suspended by the OS host
+            return (status & (SIE_CONNECTED | SIE_SUSPENDED)) == SIE_CONNECTED
+        except:
+            # Absolute fallback to ensure the app never crashes under power anomalies
+            return False
 
-    Hours from midnight until this time will display nothing, unless the screen is touched.
+    def log_debug(msg):
+        DEBUG = settings.get("DEBUG", False)
+        
+        if not DEBUG:
+            return
+        
+        # Check the physical hardware before pushing to the serial buffer
+        if is_usb_connected():
+            print(f"DEBUG: {msg}")
+    ```
 
-* END_HOUR = 22
 
-    Hours from START_HOUR to this hour are active hours. During inactive hours, the screen is dimmed and no polling is done
+* END_HOUR = _21_
 
-START_HOUR and END_HOUR are on a 24 hour clock.
+    If the current, local, time is after the specified hour, then the app will become dormant. During these hours, the screen is dimmed and no polling is done. The app can be awakened by tapping or swiping the screen.
 
-### openmeteo_api_data.py (copied from openmeteo_api_data_base.py)
+* START_HOUR = _4_
+
+    The app will be active between this hour and END_HOUR.
+
+START_HOUR and END_HOUR are on a 24 hour clock. If START_HOUR is greater than END_HOUR, END_HOUR is assumed to be on the next day from START_HOUR. Thus START_HOUR = 16 END_HOUR = 4 would run from 16:00 on day one to 04:00 the next day.
 
 * LONGITUDE, LATITUDE
 
-    The longitude and latitude to be used for the weather query.
+    The longitude and latitude to be used for the Open-meteo weather queries.
+
+* LOCAL_LONGITUDE, LOCAL_LATITUDE
+
+    These are used to determine the local time, which may be different from the time at the specified LONGITUDE and LATITUDE. Local time is used to check if the app is running within the START_HOUR and END_HOUR. 
 
 * TIMEZONE = "auto"
 
-    Openmeteo will determine the timezone (used to adjust local time based upon
-    GMT. It is possible to hard-code these, such as TIMEZONE="America/New_York" or TIMEZONE="Europe/Berlin".
+    If TIMEZONE is set to __auto__, Open-Meteometeo will automatically determine the timezone at the specified LONGITUDE and LATITUDE. It is possible to hard-code these, such as TIMEZONE="America/New_York" or TIMEZONE="Europe/Berlin". See the Open-Meteo API docs for details.
 
 * UNITS = "imperial"  # imperial / metric
 
     Use "imperial" for Fahrenheit/mph/inches. Use "metric" for Celsius/mps/mm.
 
-### router_base.py
+* N_DAY_FORECAST = _5_
 
-Copy this file to router.py and edit accordingly. **Note**: for security it is best to install mpy-cross (pip install mpy-cross) and create a .mpy file. Upload the .mpy file to keep the SSID and password from being editable if the Presto is compromised. **mpy-cross -O2 router.py**
+    specify a value of 3,4 or 5. This is how many days of forecast will be displayed on the multi-day forecast screen
 
-WIFI_SSID = "Your router's SSID"
-WIFI_PASSWORD = "Your router's password"
-OPEN_STREETMAP_AGENT = "APPNAME/VERSION (your_email_address or website_url)"
+* OPEN_STREETMAP_AGENT = _APPNAME/VERSION (email address or website url)_
 
-**Q:** Does the user agent have to contain identifying information, such as the e-mail address?
+    The Nominatim API for Open Streetmap is queried to determine the name of the location for LOCAL_LONGITUDE and LOCAL_LATITUDE. Nominatim requires an agent ID in the specified format. The email address or the website url must be valid. An example of a valid agent is: "OpenMeteo Weather Poller/V1 (me@gmail.com)" (assumes me@gmail.com is valid).
+  * Does the user agent have to contain identifying information, such as the e-mail address?
+    <p>According to Nominatim's strict official usage policy, yes, it should ideally contain a way to contact you.
+    While their server won't programmatically read your string and parse whether it's a real email address, their policy explicitly states that the User-Agent must be set to a "valid contact description." </p>
 
-**A:** According to Nominatim's strict official Usage Policy, yes, it should ideally contain a way to contact you.
+  * Why do they require it?
 
-While the server won't programmatically read your string and parse whether it's a real email address, their policy explicitly states that the User-Agent must be set to a "valid contact description." Here is why they want this, how to handle it safely, and an alternative if you don't want to expose your personal details:
+    <p>Here is why they want this, how to handle it safely, and an alternative if you don't want to expose your personal details. Nominatim is a free, community-funded service run on donated hardware. If your script accidentally goes haywire (e.g., gets stuck in an infinite loop and bombards their servers with thousands of requests), system administrators look at the logs. If there is an email: They will often email you to ask you to fix the bug. If it's anonymous or generic: They will simply block your entire IP address or IP range from accessing the service completely.</p>
 
-**Why do they require it?**
-
-Nominatim is a free, community-funded service run on donated hardware. If your script accidentally goes haywire (e.g., gets stuck in an infinite loop and bombards their servers with thousands of requests), system administrators look at the logs. If there is an email: They will often email you to ask you to fix the bug. If it's anonymous or generic: They will simply block your entire IP address or IP range from accessing the service completely.
-
-**The Standard Format**
-
-AppName/Version (YourEmailAddress or WebsiteURL)
-
+* Colors:
+  * TITLE_COLOR = <span style="color:#4169E1;">\_RoyalBlue</span>
+  * CHART_DATA_COLOR_TEMP = <span style="color:#FF0000;">\_Red</span>
+  * CHART_DATA_COLOR_PRECIP = <span style="color:#00FF00;">\_Green</span>
+  * CHART_GRID_COLOR = <span style="color:#D3D3D3;">\_LightGray</span>
+  * CHART_BACKGROUND_COLOR = <span style="color:#ffffff;">\_White</span>
+  * TABLE_HEADER_COLOR = <span style="color:#6A5ACD;">\_SlateBlue</span>
+  * TABLE_NORMAL_TEXT_COLOR = <span style="color:#AFEEEE;">\_PaleTurquoise</span>
+  * TABLE_ALERT_TEXT_COLOR = <span style="color:#FF7F50;">\_Coral</span>
+  * TABLE_BACKGROUND_COLOR = \_Black
+  <br>The module _display_functions.py_ contains a dictionary of RGB color specifications. The dictionary keys are specified for the colors to be used on screens and charts. You can preset any of these colors to your taste to make the screens more readable.
 ## Notes
 
 The following modules need to be uploaded to the RP2350:
 
-* Colors.py
-* control.py
-* display_functions.py
-* main.py
-* network_access.py
-* openmeteo.py
-* openmeteo_api_data.py (copied from openmeteo_api_data_base.py)
-* router.py (copied from router_base.py, -OR- router.mpy if router.py is optionally processed with mpy-cross)
-* Vendor_Code/pichart.py (copy to root directory on the RP2350)
+* _main.py_
+* _openmeteo.py_
+* _display_functions.py_
+* _control.py_
+* _config.json_ (after customizations)
+* _Vendor_Code/pichart.py_ (copy to root directory on the RP2350)
   
-### font
-
-The modules have been tested with Roboto-Medium font, which is installed by pimoroni on the Presto. The degree symbol (°) is not in this font. However the Roboto-Medium-With-Material-Symbols.af font, which is available from pimoroni, *does* have this symbol. But when I used it, the lower-case "t" did not print properly.
-
 ### additional API
 
-main.py invokes the openstreemap interface from Nominatim to look up the city name associated with the latitude and longitude. The call is done once in the initialization() function of the module. See the notes in router_base.py concerning this API.
-
-### colors
-
-Only four colors are used. You can modify the colors to suit your tastes. To save space, back up Colors.py and create a new dictionary with only the colors you need.
+main.py invokes the openstreemap interface from Nominatim to look up the city name associated with the latitude and longitude. The call is done once in the initialization() function of the module. See the notes in router_base.py concerning this API. main.py also invokes the timeapi.io site to get the UTC offset of the LOCAL_LONGITUDE and LOCAL_LATITUDE for determining the current time.
 
 ### pichart.py modification
 
 There was an issue in the charts. When Y-axis labels are activated, there are meant to be three values printed. The lower value (at y=0) is the minimum value of the list [] being charted, the middle value is the mean between the upper and lower list values and prints in the middle of the displayed Y-Axis. The topmost value is meant to be the maximum value. However, the maximum value was not being displayed.
+<br>Note that I have left the original UK English spelling in pichart.py. But I have used US English spellings in the other code. Made for fun coding. Feel free to curse the discrpancy.
 
 After some investigation of the update() method of the Chart class, I saw these lines at the end of the subroutine:
-
+```python
             if self.show_x_axis:
                 self._draw_x_axis()
             if self.show_y_axis:
@@ -189,9 +209,9 @@ After some investigation of the update() method of the Chart class, I saw these 
             self._display.remove_clip()
             self.draw_border()
             self._display.update()
-
+```
 On the Presto, it looks like the self.display.remove_clip() method was overlaying the upper Y-axis value. When I moved the remove_clip() to precede the axis displays:
-
+```python
             self._display.remove_clip()
 
             if self.show_x_axis:
@@ -201,15 +221,27 @@ On the Presto, it looks like the self.display.remove_clip() method was overlayin
 
             self.draw_border()
             self._display.update()
-
+```
 The problem went away and the upper number of the Y-axis displayed correctly. This fix is in the pichart.py module in the Vendor_Code directory.
 
 ### Interface notes
 
-The initial screen is the current weather based upon the last poll of the server. Swipe left on the screen to see the hourly precipitation forecast. Swipe right from the current weather to see the hourly temperature/wind speed/UVI index forecast. Swipe left or right a few times from the current weather screen to see the multi-day forecast.
+The initial screen is the current weather based upon the last poll of the server. Swipe left on the screen to see the hourly temperature/wind/UV forecast. Swipe left again to see charts of those forecast values. Swiple left once more to see the current operationg parameters. One last swipe left shows the 3 to 5 day forecast of temperatures and precipitation. 
+<br>Swipe right from the current weather to see the hourly precipitation forecast. Swipe right again to see charts of the precipitation, rainfall, snowfall and showers.
 
-The screens are cyclic. Swiping left or right six times in a row will return the the screen at the start of a cycle (meaning: if you are on the precipitation screen and swipe right six times, you will return to the precipitation screen).
+<br>The screens are cyclic. Swiping left or right seven times in a row will return the the screen at the start of a cycle (meaning: if you are on the precipitation screen and swipe left or right seven times, you will return to the precipitation screen).
 
-Swiping down dims the display by 5%. Swiping up increases the brightness by 5%. Initial brightness is 50%.
+<br>Swiping down dims the display by 5%. Swiping up increases the brightness by 5%. Initial brightness is 50%.
 
-Outside of the start and end times, the screen is cleared and dimmed to 0% brightness. No server polling is done. However, if the screen is tapped, the server is polled and the screen remains active for the duration of the current wait state. Thus if polling is 15 minutes and the wait is at minute 10 of the current wait cycle; tapping the screen will turn on the display at the last brightness level, a weather poll will be issued and displayed for the remaining 5 minutes.
+<br>Outside of the start and end times, the screen is cleared and dimmed to 0% brightness. No server polling is done. However, if the screen is tapped, the server is polled and the screen remains active for the duration of the current wait state. Thus if polling is 15 minutes and the wait is at minute 10 of the current wait cycle; tapping the screen will turn on the display at the last brightness level, a weather poll will be issued and displayed for the remaining 5 minutes.
+
+### Browser interface
+
+Once the app is up and running, you may change some of its settings via its browser interface. Swipe the display until the Current Operating Parameters screen is showing. The first parameter is the _Config IP Address_. From a device on the same sub-net display the page at that address:
+
+<div align=center>
+<img src="./BrowserInterface.png">
+</div>
+
+Any parameters that you change here will immediately be active. Changes will trigger a new poll of Open-Meteo and a redisplay of the active screen. The changes will be saved in _config.json_ and be the active parameters for the next run.
+<p>The Colors, WIFI parameters and Open Streetmap agent in the .json file are not modifiable in the browser interface.

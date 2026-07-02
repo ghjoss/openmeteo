@@ -2,8 +2,10 @@
 # Tiny dashboard Charts for MicroPython
 # Kevin McAleer
 # June 2022, Improved February 2025
+# 2.2.1: Joe Ossino
+# Chart Title scaling, Located_Container, minor fixes
 
-VERSION = "2.2.0"
+VERSION = "2.2.1"
 
 import jpegdec
 
@@ -23,16 +25,31 @@ DEFAULT_SIZES = {
     'GRID_SPACING': 10,
     'BAR_GAP': 3,
 }
-DEBUG = False  # Toggle for debug output
+DEBUG = False  
 
-def log_debug(message: str) -> None:
-    """Print debug messages if DEBUG is True.
+# RP2040 and RP2350 USB Controller base address + SIE_STATUS offset
+SIE_STATUS_REG = 0x50110000 + 0x50
 
-    Args:
-        message: The debug message to print.
-    """
-    if DEBUG:
-        print(f"DEBUG: {message}")
+# Bit definitions for the SIE status
+SIE_CONNECTED = 1 << 16
+SIE_SUSPENDED = 1 << 4
+
+def is_usb_connected():
+    """Reads the hardware register to check if an active USB host is connected."""
+    try: 
+        import machine
+        status = machine.mem32[SIE_STATUS_REG]
+        return (status & (SIE_CONNECTED | SIE_SUSPENDED)) == SIE_CONNECTED
+    except:
+        return False
+
+def log_debug(msg):
+    global DEBUG
+
+    if not DEBUG:
+        return
+    if is_usb_connected():
+        print(f"DEBUG: {msg}")
 
 class Chart:
     """A chart for plotting data on a MicroPython display.
@@ -50,7 +67,7 @@ class Chart:
     """
     SHOW_AXES_DEFAULT = False
     def __init__(self, display, title: str = "", x_label: str = None, y_label: str = None, 
-                 values: list = None):
+                 values: list = None, title_scale = 1):
         """Create a new chart.
 
         Args:
@@ -67,15 +84,16 @@ class Chart:
             raise ValueError("Display object is required")
         
         self._display = display
-        self._pen_cache = {}  # Cache for pens to reduce memory usage
+        self._pen_cache = {}  
         self.title = title
+        self.title_scale = int(title_scale) if title_scale >= 1 else 1
         self._x_label = x_label
         self._y_label = y_label
         self.values = values or []
         self._min_val = None
         self._max_val = None
         self._y_scale = 1
-        self._x_scale = 1  # New attribute for horizontal scaling
+        self._x_scale = 1  
         
         # Positioning and size
         self.x = 0
@@ -119,7 +137,7 @@ class Chart:
         self._display.set_pen(axis_pen)
         y_pos = self.y + self.height - self.border_width - 10
         # print(f"self.y: {self.y}, ypos: {y_pos}")
-        # self._display.line(self.x + self.border_width, y_pos, self.x + self.width - self.border_width, y_pos)
+        self._display.line(self.x + self.border_width, y_pos, self.x + self.width - self.border_width, y_pos)
         if self.values:
             self._display.text(str(self.values[0]), self.x + self.border_width, y_pos + 2, scale=1)
             self._display.text(str(self.values[len(self.values)//2]), self.x + (self.width // 2), y_pos + 2, scale=1)
@@ -130,7 +148,7 @@ class Chart:
         self._display.set_pen(axis_pen)
         x_pos = self.x + self.border_width + 10
         # print(f"self.x: {self.x}, xpos: {x_pos}")
-        # self._display.line(x_pos, self.y + self.border_width, x_pos, self.y + self.height - self.border_width)
+        self._display.line(x_pos, self.y + self.border_width, x_pos, self.y + self.height - self.border_width)
         if self.values:
             self._display.text(str(self._min_val), x_pos - 10, self.y + self.height - self.border_width - 10, scale=1)
             self._display.text(str((self._min_val + self._max_val) // 2), x_pos - 10, self.y + (self.height // 2) - 5, scale=1)
@@ -211,8 +229,6 @@ class Chart:
             raise ValueError("Data values cannot be empty")
         if not all(isinstance(v, (int, float)) for v in values):
             raise ValueError("All data values must be numeric")
-        if any(v < -1000 or v > 1000 for v in values):
-            log_debug("Data values outside typical range (-1000 to 1000)")
 
     def _scale_data(self) -> None:
         """Adjust data scale to fit both chart height and width if scale_to_fit is True."""
@@ -233,7 +249,7 @@ class Chart:
             plot_width = self.width - (self.border_width * 2) - (self.bar_gap * (num_values - 1))
             # print(f"Plot width: {plot_width}, number of values: {num_values}")
             if num_values > 1:
-                self._x_scale = plot_width / (num_values - 1)  # Space between points
+                self._x_scale = plot_width / (num_values - 1)
             else:
                 self._x_scale = plot_width  # Single point
         else:
@@ -313,12 +329,23 @@ class Chart:
             # Draw title
             title_pen = self._get_pen(self.title_colour)
             self._display.set_pen(title_pen)
-            title_x_pos = self.x + (self.width - self._display.measure_text(self.title, 1)) // 2 - self.border_width * 2
             
-            # self._display.text(self.title, self.x + self.border_width + 1, self.y + self.border_width + 1, self.width)
-            self._display.text(self.title, title_x_pos, 
-                             self.y + self.border_width + 1, self.width)
+            if self.title_scale == 2:
+                #2 * 6px = 12px total height
+                self._display.set_font("bitmap6")
+                render_scale = 2
+            else:
+                self._display.set_font("bitmap8")
+                render_scale = self.title_scale
+                
+            measured_w = self._display.measure_text(self.title, scale=render_scale)
+            title_x_pos = self.x + (self.width - measured_w) // 2 - self.border_width * 2
+            title_y_pos = self.y + self.border_width + 1
 
+            self._display.text(self.title, title_x_pos, title_y_pos, self.width, render_scale)
+            
+            self._display.set_font("bitmap8")
+            # ---------------------------------------------
             # Prepare data drawing
             data_pen = self._get_pen(self.data_colour)
             data_pen_dim = self._get_pen({
@@ -346,7 +373,6 @@ class Chart:
                 else:
                     point_spacing = plot_area_width  # Single point takes full width
                 bar_width = point_spacing - self.bar_gap if self.show_bars else self.data_point_width
-                # print(f'point spacing {point_spacing} bar width {bar_width}')
                 if bar_width < 1:
                     bar_width = 1  # Minimum width
             else:
@@ -406,7 +432,7 @@ class Card(Chart):
     """
 
     def __init__(self, display, x: int = 0, y: int = 0, width: int = 100, height: int = 100, 
-                 title: str = ""):
+                 title: str = "", fixed_width: bool = False, title_scale = None):
         """Create a new card.
 
         Args:
@@ -423,7 +449,9 @@ class Card(Chart):
         self.width = width
         self.height = height
         self._text_scale = 1
-        self.grid = False  # Cards typically don’t need grids
+        self.grid = False
+        self.fixed_width = fixed_width
+        self.manual_title_scale = int(title_scale) if title_scale is not None else None
 
     def _scale_text(self) -> int:
         """Find the best text scale to fit the title.
@@ -437,14 +465,27 @@ class Card(Chart):
         scale = 2  # Start with a reasonable scale
 
         while scale > 0:
-            text_width = self._display.measure_text(self.title, scale)
+            text_width = self._display.measure_text(self.title, scale=scale)
             text_height = 8 * scale
             if text_width <= max_width and text_height <= max_height:
-            #    print(f"Text width: {text_width}, height: {text_height}, scale: {scale}")
                 return scale
             scale -= 1
         return 1
 
+    def _get_text_position(self, text_width: int, text_height: int) -> tuple:
+        """Calculate the position to draw the text centered in the card.
+
+        Args:
+            text_width: Width of the text in pixels.
+            text_height: Height of the text in pixels.
+
+        Returns:
+            Tuple of (x, y) coordinates for the text.
+        """
+        x = self.x + (self.width - text_width) // 2
+        y = self.y + (self.height - text_height) // 2
+        return x, y
+    
     def update(self) -> None:
         """Draw the card on the display with centered, potentially wrapped text."""
         try:
@@ -463,27 +504,93 @@ class Card(Chart):
             # Calculate available width for text (excluding borders)
             max_text_width = self.width - (self.border_width * 2)
             text_length = self._display.measure_text(self.title, self._text_scale)
-            
+            title_x, title_y = self._get_text_position(text_length, 8 * self._text_scale)
             # Center the text horizontally
-            title_x = self.x + (self.width - text_length) // 2
-            # Center the text vertically (assuming 8 pixels per line height)
-            title_y = self.y + (self.height - (self._text_scale * 8)) // 2
 
             self._display.set_pen(title_pen)
             # Draw text with wrapping if it exceeds max_text_width
             if text_length > max_text_width:
                 # Use max_text_width as the wordwrap parameter
-                self._display.text(self.title, self.x + self.border_width, title_y, max_text_width, self._text_scale)
+                self._display.text(self.title, self.x + self.border_width, title_y, max_text_width, self._text_scale,fixed_width=self.fixed_width)
                 # print(f"Text wrapped: width={text_length}, max_width={max_text_width}, scale={self._text_scale}")
             else:
                 # Draw centered text without wrapping
-                self._display.text(self.title, title_x, title_y, max_text_width, self._text_scale)
+                self._display.text(self.title, title_x, title_y, max_text_width, self._text_scale,fixed_width=self.fixed_width)
                 # print(f"Text centered: width={text_length}, x={title_x}, y={title_y}, scale={self._text_scale}")
 
             self._display.update()
 
         except Exception as e:
             log_debug(f"Card update error: {e}")
+
+class TextCard(Card):
+    """A clean text card built for bitmap8 fonts.
+    Supports optional text centering flags.
+    """
+    
+    def __init__(self, display, x: int = 0, y: int = 0, width: int = 100, height: int = 100, 
+                 title: str = "", x_center: bool = False, y_center: bool = False,
+                 border_offset: int = 5, fixed_width=False, title_scale: int = 1):
+        super().__init__(display, x=x, y=y, width=width, height=height, title=title)
+        self._x_center = x_center
+        self._y_center = y_center
+        self._border_offset = border_offset
+        self._fixed_width = fixed_width
+        self.title_scale = int(title_scale)
+
+    def _get_title_position(self, text_length: int) -> tuple:
+        """Returns bounds based on your custom centering parameters."""
+        max_text_width = self.width - (self.border_width * 2)
+
+        # Horizontal alignment
+        if self._x_center:
+            title_x = self.x + (self.width - text_length) // 2
+        else:
+            title_x = self.x + self.border_width + self._border_offset
+
+        # Vertical alignment
+        if self._y_center:
+            title_y = self.y + (self.height - (self.title_scale * 8)) // 2
+        else:
+            title_y = self.y + self.border_width + self._border_offset
+
+        return title_x, title_y, max_text_width
+    
+    def update(self) -> None:
+        """Overrides parent update loop to enforce custom layout metrics."""
+        try:
+            # 1. Background frame layout configuration
+            background_pen = self._get_pen(self.background_colour)
+            title_pen = self._get_pen(self.title_colour)
+            self._display.set_pen(background_pen)
+            self._display.rectangle(self.x, self.y, self.width, self.height)
+
+            if self.grid:
+                self.draw_grid()
+            self.draw_border()
+
+            # 2. Setup text rendering engine state
+            self._display.set_font("bitmap8")
+            self._display.set_pen(title_pen)
+            
+            max_text_width = self.width - (self.border_width * 2) - (self._border_offset * 2)
+            text_length = self._display.measure_text(self.title, scale=self.title_scale)
+            
+            if self._x_center:
+                title_x = self.x + (self.width - text_length) // 2
+            else:
+                title_x = self.x + self.border_width + self._border_offset
+
+            if self._y_center:
+                title_y = self.y + (self.height - (self.title_scale * 8)) // 2
+            else:
+                title_y = self.y + self.border_width + self._border_offset
+            # Render to hardware canvas safely
+            self._display.text(self.title, title_x, title_y, max_text_width, scale=self.title_scale, fixed_width=self._fixed_width)
+            self._display.update()
+
+        except Exception as e:
+            log_debug(f"TextCard update error: {e}")
 
 class ImageTile:
     """A tile for showing an image with a border.
@@ -726,3 +833,70 @@ class Container:
         self._border_width = value
         for item in self.charts:
             item.border_width = value
+
+DEFAULT_SINGLE_LINE_HEIGHT = 14
+
+class Located_Container(Container):
+    def __init__(self, display, width: int = None, height: int = DEFAULT_SINGLE_LINE_HEIGHT, x: int = 0, y: int = 0):
+        super().__init__(display, width=width, height=height)
+        self._x = x
+        self._y = y
+        self._display = display
+    
+    def update(self):
+        """Draw all items in the container relative to its absolute screen placement."""
+        try:
+            if not self.charts:
+                log_debug("No charts in container")
+                return
+
+            rows = (len(self.charts) + self.cols - 1) // self.cols  # Ceiling division
+            item_width = self.width // self.cols
+            item_height = self.height // rows
+
+            for idx, item in enumerate(self.charts):
+                # 1. Calculate the relative grid position (0-indexed)
+                grid_col = idx % self.cols
+                grid_row = idx // self.cols
+                
+                # 2. Map grid to local size, THEN apply the absolute pixel offsets
+                item.x = self._x + (grid_col * item_width)
+                item.y = self._y + (grid_row * item_height)
+                
+                item.width = item_width
+                item.height = item_height
+                item.update()
+        except Exception as e:
+            log_debug(f"Located Container layout error: {e}")
+
+class Located_Container1(Container):
+    def __init__(self, display, width: int = None, height: int = None, x: int = 0, y: int = 0):
+        super().__init__(display, width=width, height=height)
+        self._x = x
+        self._y = y
+        self._display = display
+    
+    def update(self):
+        """Draw all items in the container.
+
+        Arranges items in a grid based on x,y, cols and total items.
+        """
+        try:
+            if not self.charts:
+                log_debug("No charts in container")
+                return
+
+            rows = (len(self.charts) + self.cols - 1) // self.cols  # Ceiling division
+            item_width = self.width // self.cols
+            item_height = self.height // rows
+
+            for idx, item in enumerate(self.charts):
+                col = self._x + idx % self.cols
+                row = self._y + idx // self.cols
+                item.x = col * item_width
+                item.y = row * item_height
+                item.width = item_width
+                item.height = item_height
+                item.update()
+        except:
+            pass

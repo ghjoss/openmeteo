@@ -171,6 +171,22 @@ def get_city(lcl_settings):
         log_debug(f"openstreet map city lookup failed.")
     return city
 
+def get_local_hhmm(utc_offset_seconds=0):
+    """
+    Determine the local current time. Assumes the time.io LOCAL_UTC_OFFSET_SECONDS
+    was correct, otherwise returns time of day at the prime meridian.
+
+    Args: None
+    Returns:
+        list: A list containing the current hour and minute [hour, minute].
+    """
+    log_debug("[main] get_local_hhmm()")
+
+    now = time.gmtime(time.time() + utc_offset_seconds)
+
+    log_debug(f"It is now {now[3]}:{now[4]} on {now[0]}/{now[1]}/{now[2]}")
+    return [now[3],now[4]]
+ 
 def initialize():
     """
     Initialize the weather provider. 
@@ -246,13 +262,16 @@ def initialize():
     log_debug("timeapi.io UTC_OFFSET_SECONDS determination (one time call)...")
     global UTC_OFFSET_SECONDS, LOCAL_UTC_OFFSET_SECONDS
     try:
-        LOCAL_UTC_OFFSET_SECONDS = 0
         url = f"https://timeapi.io/api/timezone/coordinate?latitude={LOCAL_LATITUDE}&longitude={LOCAL_LONGITUDE}"
         res = requests.get(url,timeout=5)
         data = res.json()
         LOCAL_UTC_OFFSET_SECONDS = data["currentUtcOffset"]["seconds"]
     except Exception as e:
         log_debug(f"Unable to get UTC offset seconds for the location, defaulting to 0. Error: {e}")
+        LOCAL_UTC_OFFSET_SECONDS = 0
+
+    ntptime.settime()
+    local_hhmm = get_local_hhmm(LOCAL_UTC_OFFSET_SECONDS)
 
     log_debug("...UTC_OFFSET complete. Next: Presto initialization...")
     presto = Presto()
@@ -275,7 +294,9 @@ def initialize():
     presto.set_backlight(brightness)
     presto.update()
 
-async def responsive_wait(minutes, data, sleeping):
+    return local_hhmm
+
+async def responsive_wait(minutes, data, sleeping, local_hhmm=[0,0], utc_offset_seconds=0):
     """
     Wait for a specified number of minutes while remaining responsive to touch events.
     
@@ -329,8 +350,7 @@ async def responsive_wait(minutes, data, sleeping):
                 elif current_view_state == PRECIPITATION_CHART_VIEW:
                     openmeteo.precipitation_charts(lcl_data)
                 elif current_view_state == PARAMETERS:
-                    now_list = await get_now_list()
-                    openmeteo.format_current_parameters(settings, DEFAULTS, city, now_list, IP_ADDRESS)
+                    openmeteo.format_current_parameters(settings, DEFAULTS, city, IP_ADDRESS, utc_offset_seconds)
                 viewStateChanged = False
 
         if settings_values_changed:
@@ -361,7 +381,9 @@ async def responsive_wait(minutes, data, sleeping):
 
                 if adx < MIN_SWIPE_DISTANCE and ady < MIN_SWIPE_DISTANCE and elapsed < SWIPE_THRESHOLD:
                     log_debug("Tap detected")
-                    viewStateChanged = True # Force a redraw on tap
+                    if current_view_state == PARAMETERS:
+                        log_debug("Tap on PARAMETERS view, refreshing screen...")
+                        viewStateChanged = True # Force a redraw on tap
                 
                 elif adx >= ady: # Horizontal Swipes
                     # 3. FIX: Adjusted step direction to match your explicit goal: 
@@ -391,26 +413,7 @@ async def responsive_wait(minutes, data, sleeping):
     # Return the updated data back to weather_loop_task
     return lcl_data
 
-async def get_now_list():
-    """
-    Determine the local current time. Assumes the time.io LOCAL_UTC_OFFSET_SECONDS
-    was correct, otherwise returns time of day at the prime meridian.
 
-    Args: None
-    Returns:
-        list: A list containing the current hour and minute [hour, minute].
-    """
-    global LOCAL_UTC_OFFSET_SECONDS
-    log_debug("[main] get_now_list()")
-
-    try:
-        ntptime.settime()
-        now = time.gmtime(time.time() + LOCAL_UTC_OFFSET_SECONDS)
-    except:
-        now = time.gmtime(time.time())
-    log_debug(f"It is now {now[3]}:{now[4]} on {now[0]}/{now[1]}/{now[2]}")
-    return [now[3],now[4]]
- 
 async def in_range(cur_h: int, start_h: int, end_h: int) -> bool:
     """
     Returns True if cur_h (0‑23) lies inside the interval
@@ -465,7 +468,7 @@ async def get_forecast_with_retries(max_retries=6, initial_interval=400):
 
     raise RuntimeError("Unable to retrieve forecast data after multiple attempts.")
 
-async def weather_loop_task():
+async def weather_loop_task(local_hhmm):
     """
     Main weather loop task that continuously fetches and updates weather data.
     This function runs in an infinite loop until the termination_flag is set to True.
@@ -476,7 +479,7 @@ async def weather_loop_task():
     log_debug("[main] weather_loop_task()")
 
     global settings_values_changed, termination_flag
-    global LONGITUDE, LATITUDE, START_HOUR, END_HOUR, N_DAY_FORECAST
+    global LONGITUDE, LATITUDE, START_HOUR, END_HOUR, N_DAY_FORECAST, LOCAL_UTC_OFFSET_SECONDS
     global query_interval, current_view_state, city, CURRENT_WEATHER_VIEW, brightness
     
     # 1. Setup phase (Runs exactly once)
@@ -513,17 +516,14 @@ async def weather_loop_task():
             if not sleeping:
                 data = await get_forecast_with_retries()
         
-            now_list = await get_now_list()
-            log_debug(now_list)
-            if len(now_list) > 0:
-                sleeping = not await in_range(now_list[0], START_HOUR, END_HOUR)
+            sleeping = not await in_range(local_hhmm[0], START_HOUR, END_HOUR)
 
             if sleeping:
                 df.cls()
                 df.set_backlight(0.0)
             
             # This is where the loop pauses before repeating
-            data = await responsive_wait(query_interval, data, sleeping)
+            data = await responsive_wait(query_interval, data, sleeping, local_hhmm, utc_offset_seconds=LOCAL_UTC_OFFSET_SECONDS)
 
         except KeyboardInterrupt:
             log_debug("[weather_loop_task] Program stopped by user. Exiting gracefully.")
@@ -902,7 +902,7 @@ async def main():
     log_debug("[main] main()")
     try:
         settings = await load_settings_async()
-        initialize()
+        local_hhmm = initialize()
         # FORCE A DIAGNOSTIC PRINT TO TERMINAL
         log_debug(f"Raw State Content: {settings}")
     except KeyboardInterrupt:
@@ -923,7 +923,7 @@ async def main():
     log_debug("[main] main(): Starting background loops...")
     try:
         await asyncio.gather(
-            weather_loop_task(),
+            weather_loop_task(local_hhmm),
             supervisor_task()
         )
         log_debug("Web server and supervisor implemented.")

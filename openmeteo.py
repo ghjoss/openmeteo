@@ -4,6 +4,7 @@ import display_functions as df
 import gc
 import json
 import asyncio
+import time
 
 def init_provider(main_presto, settings):
     global presto, display, WIDTH, HEIGHT
@@ -819,7 +820,7 @@ async def get_forecast_data(settings):
         f"Connection: close\r\n\r\n"
     )
     
-    log_debug("\n" + "="*60)
+    log_debug("="*60)
     log_debug("      DIAGNOSTIC OUTBOUND SOCKET PACKET")
     log_debug("="*60)
     log_debug(request)  # This lets you see exactly what the socket sees
@@ -889,10 +890,10 @@ async def get_forecast_data(settings):
         # Convert to text string
         body_text = body_bytes.decode('utf-8').strip()
         
-        log_debug("\n" + "="*60)
+        log_debug("="*60)
         log_debug("      DIAGNOSTIC INBOUND RAW RESPONSE FROM SERVER")
         log_debug("="*60)
-        # Peek at the response. If the query failed, Open-Meteo tells us EXACTLY why here!
+        # Peek at the response. If the query failed, Open-Meteo tells why here
         log_debug(body_text[:1000]) 
         log_debug("="*60 + "\n")
         
@@ -915,7 +916,7 @@ async def get_forecast_data(settings):
             pass
         gc.collect()
 
-def format_current_parameters(settings, defaults, city, now_list, IP_ADDRESS):
+def format_current_parameters(settings, defaults, city, IP_ADDRESS, utc_offset_seconds):
     """
     show the options currently in effect (longitude, latitude, days of forecast, ...)
 
@@ -962,7 +963,8 @@ def format_current_parameters(settings, defaults, city, now_list, IP_ADDRESS):
     row_y = 20
 
     # Format and print the header rows for the forecast data.
-    line = [f"Current Operating Parameters @{now_list[0]:02}:{now_list[1]:02}"]
+    now = time.gmtime(time.time() + utc_offset_seconds)
+    line = [f"Current Operating Parameters @{now[3]:02}:{now[4]:02}"]
     df.draw_vector_row(line, row_y, date_pen, anchors=[])
     row_y += df.row_step
     line = [f"Config IP Address:", f"{IP_ADDRESS}"]

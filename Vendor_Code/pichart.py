@@ -868,35 +868,3 @@ class Located_Container(Container):
                 item.update()
         except Exception as e:
             log_debug(f"Located Container layout error: {e}")
-
-class Located_Container1(Container):
-    def __init__(self, display, width: int = None, height: int = None, x: int = 0, y: int = 0):
-        super().__init__(display, width=width, height=height)
-        self._x = x
-        self._y = y
-        self._display = display
-    
-    def update(self):
-        """Draw all items in the container.
-
-        Arranges items in a grid based on x,y, cols and total items.
-        """
-        try:
-            if not self.charts:
-                log_debug("No charts in container")
-                return
-
-            rows = (len(self.charts) + self.cols - 1) // self.cols  # Ceiling division
-            item_width = self.width // self.cols
-            item_height = self.height // rows
-
-            for idx, item in enumerate(self.charts):
-                col = self._x + idx % self.cols
-                row = self._y + idx // self.cols
-                item.x = col * item_width
-                item.y = row * item_height
-                item.width = item_width
-                item.height = item_height
-                item.update()
-        except:
-            pass

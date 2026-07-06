@@ -171,7 +171,7 @@ def get_city(lcl_settings):
         log_debug(f"openstreet map city lookup failed.")
     return city
 
-def get_local_hhmm(utc_offset_seconds=0):
+async def get_local_hhmm(utc_offset_seconds=0):
     """
     Determine the local current time. Assumes the time.io LOCAL_UTC_OFFSET_SECONDS
     was correct, otherwise returns time of day at the prime meridian.
@@ -468,7 +468,7 @@ async def get_forecast_with_retries(max_retries=6, initial_interval=400):
 
     raise RuntimeError("Unable to retrieve forecast data after multiple attempts.")
 
-async def weather_loop_task(local_hhmm):
+async def weather_loop_task():
     """
     Main weather loop task that continuously fetches and updates weather data.
     This function runs in an infinite loop until the termination_flag is set to True.
@@ -515,7 +515,8 @@ async def weather_loop_task(local_hhmm):
 
             if not sleeping:
                 data = await get_forecast_with_retries()
-        
+
+            local_hhmm = await get_local_hhmm(LOCAL_UTC_OFFSET_SECONDS)
             sleeping = not await in_range(local_hhmm[0], START_HOUR, END_HOUR)
 
             if sleeping:
@@ -923,7 +924,7 @@ async def main():
     log_debug("[main] main(): Starting background loops...")
     try:
         await asyncio.gather(
-            weather_loop_task(local_hhmm),
+            weather_loop_task(),
             supervisor_task()
         )
         log_debug("Web server and supervisor implemented.")
